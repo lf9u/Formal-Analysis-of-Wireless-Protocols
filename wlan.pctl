@@ -1,0 +1,10 @@
+P>=1 [ true U s1=6&s2=6 ]
+
+Pmin=? [ true U s1=6 & s2=6 ]
+
+Pmin=? [ true U (s1=6 | s2=6) ]
+
+Pmax=? [ true U (s1=6 | s2=6) ]
+
+Pmax=? [ true U s1=6 & s2=6 ]
+

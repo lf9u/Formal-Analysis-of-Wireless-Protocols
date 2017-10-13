@@ -1,0 +1,109 @@
+pta
+
+const int ASLOTTIME = 1;
+const int SIFS = 1;
+const int DIFS = 3;
+const int TRANS_TIME_MAX = 10;
+const int TRANS_TIME_MIN = 4;
+const int ACK = 5;
+const double PACKET_LOSS_RATE = 0.5;
+
+//FORMULA FOR THE CHANNEL
+//channel is busy
+formula free = status = 1;
+//channel is free
+formula busy = status = 0;
+
+module channel
+
+	// status coppesponds to the channel status
+	// 0 status is busy
+	// 1 status is free
+	// initialized to be free
+	status : [0..1] init 1;
+	
+	// begin sending message and nothing else currently being sent, status changes from FREE -> BUSY
+	[send1] status = 1 -> (status' = 0);
+	[send2] status = 1 -> (status' = 0);
+	
+	// finish sending message, status changes from BUSY -> FREE
+	[finish1] status = 0 -> (status' = 1);
+	[finish2] status = 0 -> (status' = 1);
+
+endmodule
+
+module station1
+
+	//clock for station1
+	//x1 : [0..TRANS_TIME_MAX];
+	
+	// local state
+	s1 : [1..7]; 
+	// 1 sense
+	// 2 transmit
+	// 3 wait for ACK
+	// 4 wait for channel to be free
+	// 5 wait for DIFS and then transmit
+	// 6 done
+	// 7 fail
+	
+	//clock for station l
+	x1 : clock;
+
+	invariant
+		(s1 = 1 => x1 < DIFS) &
+		(s1 = 2 => x1 < TRANS_TIME_MAX) &
+		(s1 = 3 => x1 < ACK) &
+		(s1 = 5 => x1 < DIFS)
+	endinvariant
+
+	// SENSE, let time pass
+	//[time] s1 = 1 & x1 < DIFS & free -> (x1' = min(x1+1,TRANS_TIME_MAX));
+	// ready to transmit
+	[] s1 = 1 & x1 = DIFS -> (s1' =  2) & (x1' = 0);
+	// found channel busy, so wait until free
+	[] s1 = 1 & busy -> (s1' = 4) & (x1' = 0);
+
+	// TRANSMIT, let time pass
+	//[time] s1 = 2 & x1 < TRANS_TIME_MAX -> (x1' = min(x1+1,TRANS_TIME_MAX));
+	//move to transmit, with probability 1-p, the packet is sent successful; and with probability p, the packet is lost.
+	[send1] s1 = 2 & x1>= TRANS_TIME_MIN -> 1-PACKET_LOSS_RATE: (s1' = 3) & (x1' = 0) + PACKET_LOSS_RATE: (s1' = 7) & (x1' = 0);
+	
+	// WAIT FOR ACK, let time pass
+	//[time] s1 = 3 & x1 < ACK -> (x1' = min(x1+1, TRANS_TIME_MAX));
+	// with probability 1-p, the ACK is received by sender successfully; and with probability p, the ACK is lost.
+	[finish1] s1 = 3 & x1 < ACK -> 1-PACKET_LOSS_RATE: (s1' = 6) & (x1' = 0) + PACKET_LOSS_RATE: (s1' = 7) & (x1' = 0);
+	// NO ACK
+	[] s1 = 3 & x1 = ACK -> (s1' = 4) & (x1' = 0);
+	
+	//WAIT UNTIL FREE, let time pass
+	[] s1 = 4 & busy -> (s1' = 4);
+	[] s1 = 4 & free -> (s1' = 5);
+
+	//WAIT FOR DIFS to transmit, let time pass
+	//[time] s1 = 5 & x1< DIFS & free -> (x1' = min(x1+1,TRANS_TIME_MAX));
+	[] s1 =5 & x1 = DIFS -> (s1' = 2) & (x1' = 0);
+	
+	//DONE
+	[] s1 = 6 -> (s1' = 6);
+
+	//FAIL
+	[] s1 = 7 -> (s1' = 7);
+
+endmodule
+
+// station 2 (rename station 1)
+module 
+station2 = station1[
+			x1 = x2,
+			s1 = s2,
+			s2 = s1,
+			send1 = send2,
+			finish1 = finish2]
+
+endmodule
+
+//reward structure for expected time, one time unit equals ASLOTTIME(=20 microseconds)
+rewards "time"
+	true : 20;
+endrewards
