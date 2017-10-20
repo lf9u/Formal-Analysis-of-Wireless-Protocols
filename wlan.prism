@@ -7,6 +7,7 @@ const int TRANS_TIME_MAX = 10;
 const int TRANS_TIME_MIN = 4;
 const int ACK = 5;
 const double PACKET_LOSS_RATE = 0.5;
+const double CCA = 0.2;
 
 //FORMULA FOR THE CHANNEL
 //channel is busy
@@ -30,6 +31,8 @@ module channel
 	[finish1] status = 0 -> (status' = 1);
 	[finish2] status = 0 -> (status' = 1);
 
+	[] status = 1 -> CCA: (status' = 1) + 1-CCA: (status' = 0);
+
 endmodule
 
 module station1
@@ -38,47 +41,39 @@ module station1
 	x1 : [0..TRANS_TIME_MAX];
 	
 	// local state
-	s1 : [1..7]; 
+	s1 : [1..6]; 
 	// 1 sense
 	// 2 transmit
-	// 3 wait for ACK
-	// 4 wait for channel to be free
-	// 5 wait for DIFS and then transmit
-	// 6 done
-	// 7 fail
+	// 3 wait for channel to be free
+	// 4 FIAL
+	// 5 DONE
+	// 6 wait for DIFS and then transmit
 
 	// SENSE, let time pass
 	[time] s1 = 1 & x1 < DIFS & free -> (x1' = min(x1+1,TRANS_TIME_MAX));
 	// ready to transmit
 	[] s1 = 1 & x1 = DIFS -> (s1' =  2) & (x1' = 0);
 	// found channel busy, so wait until free
-	[] s1 = 1 & busy -> (s1' = 4) & (x1' = 0);
+	[] s1 = 1 & busy -> (s1' = 3) & (x1' = 0);
 
 	// TRANSMIT, let time pass
 	[time] s1 = 2 & x1 < TRANS_TIME_MAX -> (x1' = min(x1+1,TRANS_TIME_MAX));
 	//move to transmit, with probability 1-p, the packet is sent successful; and with probability p, the packet is lost.
-	[send1] s1 = 2 & x1>= TRANS_TIME_MIN -> 1-PACKET_LOSS_RATE: (s1' = 3) & (x1' = 0) + PACKET_LOSS_RATE: (s1' = 7) & (x1' = 0);
-	
-	// WAIT FOR ACK, let time pass
-	[time] s1 = 3 & x1 < ACK -> (x1' = min(x1+1, TRANS_TIME_MAX));
-	// with probability 1-p, the ACK is received by sender successfully; and with probability p, the ACK is lost.
-	[finish1] s1 = 3 & x1 < ACK -> 1-PACKET_LOSS_RATE: (s1' = 6) & (x1' = 0) + PACKET_LOSS_RATE: (s1' = 7) & (x1' = 0);
-	// NO ACK
-	[] s1 = 3 & x1 = ACK -> (s1' = 4) & (x1' = 0);
+	[send1] s1 = 2 & x1>= TRANS_TIME_MIN -> 1-PACKET_LOSS_RATE: (s1' = 5) & (x1' = 0) + PACKET_LOSS_RATE: (s1' = 4) & (x1' = 0);
 	
 	//WAIT UNTIL FREE, let time pass
-	[time] s1 = 4 & busy -> (s1' = 4);
-	[] s1 = 4 & free -> (s1' = 5);
+	[time] s1 = 3 & busy -> (s1' = 3);
+	[] s1 = 3 & free -> (s1' = 6);
+	
+	//FIAL
+	[time] s1 = 4 -> (s1' = 4);
+
+	//DONE
+	[time] s1 = 5 -> (s1' = 5);
 
 	//WAIT FOR DIFS to transmit, let time pass
-	[time] s1 = 5 & x1< DIFS & free -> (x1' = min(x1+1,TRANS_TIME_MAX));
-	[] s1 =5 & x1 = DIFS -> (s1' = 2) & (x1' = 0);
-	
-	//DONE
-	[time] s1 = 6 -> (s1' = 6);
-
-	//FAIL
-	[time] s1 = 7 -> (s1' = 7);
+	[time] s1 = 6 & x1< DIFS & free -> (x1' = min(x1+1,TRANS_TIME_MAX));
+	[] s1 =6 & x1 = DIFS -> (s1' = 2) & (x1' = 0);
 
 endmodule
 
