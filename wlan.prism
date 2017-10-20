@@ -7,7 +7,7 @@ const int TRANS_TIME_MAX = 10;
 const int TRANS_TIME_MIN = 4;
 const int ACK = 5;
 const double PACKET_LOSS_RATE = 0.5;
-const double CCA = 0.2;
+const double CCA = 0.5;
 
 //FORMULA FOR THE CHANNEL
 //channel is busy
