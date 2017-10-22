@@ -65,7 +65,7 @@ module station1
 	[time] s1 = 3 & busy -> (s1' = 3);
 	[] s1 = 3 & free -> (s1' = 6);
 	
-	//FIAL
+	//FAIL
 	[time] s1 = 4 -> (s1' = 4);
 
 	//DONE
