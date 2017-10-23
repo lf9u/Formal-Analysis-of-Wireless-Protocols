@@ -45,7 +45,7 @@ module station1
 	// 1 sense
 	// 2 transmit
 	// 3 wait for channel to be free
-	// 4 FIAL
+	// 4 FAIL
 	// 5 DONE
 	// 6 wait for DIFS and then transmit
 
