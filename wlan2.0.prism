@@ -1,0 +1,71 @@
+const int ASLOTTIME = 1;
+const int SIFS = 1;
+const int DIFS = 3;
+const int TRANS_TIME_MAX = 10;
+const int TRANS_TIME_MIN = 4;
+const int ACK = 5;
+const double PACKET_LOSS_RATE = 0.5;
+const double CCA = 0.1;
+
+module leader
+
+	// clock for leader
+	x : [0..TRANS_TIME_MAX];
+	
+	// channel status
+	// 0 channel is free
+	// 1 channel is busy
+	c : [0..1]; 	
+
+	// local state
+	s : [1..6]; 
+	// 1 sense
+	// 2 wait for DIFS
+	// 3 wait until free
+	// 4 transmit
+	// 5 fail
+	// 6 done
+
+	// SENSE, channel free
+	[] s = 1 & c = 0 -> (s' = 2) & (x' = 0);
+	// SENSE, channel busy
+	[] s = 1 & c = 1 -> (s' = 3) & (x' = 0);
+
+	//WAIT FOR DIFS to transmit, let time pass
+	[time] s = 2 & x< DIFS -> CCA: (s' = 3) + 1 - CCA: (x' = min(x + 1,TRANS_TIME_MAX));
+	[] s =2 & x = DIFS -> (s' = 4) & (x' = 0);
+
+	//WAIT UNTIL FREE, let time pass
+	[time] s = 3 & c = 1 -> (s' = 3);
+	[] s = 3 & c = 0 -> (s' = 2);
+
+	// TRANSMIT, let time pass
+	[time] s = 4 & x < TRANS_TIME_MAX -> (x' = min(x + 1,TRANS_TIME_MAX));
+	//move to transmit, with probability 1-p, the packet is sent successful; and with probability p, the packet is lost.
+	[send] s = 4 & x>= TRANS_TIME_MIN -> PACKET_LOSS_RATE: (s' = 5) & (x' = 0) + 1 - PACKET_LOSS_RATE: (s' = 6) & (x' = 0);
+	
+	//FAIL
+	[time] s = 5 -> (s' = 1) & (x' = 0);
+
+	//DONE
+	[time] s = 6 -> (s' = 6);
+
+endmodule
+
+const int DEADLINE;
+
+// timer
+module timer
+	// global time
+	t : [0..DEADLINE];
+	
+	[time] (t<DEADLINE) -> (t'=min(t+1,DEADLINE));
+	// loop when time passes DEADLINE to prevent further transitions
+	[] (t>=DEADLINE) -> (t'=t);
+	
+endmodule
+
+//reward structure for expected time, one time unit equals ASLOTTIME(=20 microseconds)
+rewards "time"
+	[time] true : 20;
+endrewards
