@@ -13,12 +13,12 @@ module leader
 	x : [0..TRANS_TIME_MAX];
 	
 	// channel status
-	// 0 channel is free
-	// 1 channel is busy
-	c : [0..1]; 	
+	// 1 channel is free
+	// 2 channel is busy
+	c : [0..2] init 0; 	
 
 	// local state
-	s : [1..6]; 
+	s : [1..6] init 1; 
 	// 1 sense
 	// 2 wait for DIFS
 	// 3 wait until free
@@ -27,9 +27,9 @@ module leader
 	// 6 done
 
 	// SENSE, channel free
-	[] s = 1 & c = 0 -> (s' = 2) & (x' = 0);
-	// SENSE, channel busy
-	[] s = 1 & c = 1 -> (s' = 3) & (x' = 0);
+	[] s = 1 & c = 0 -> (1-CCA): (s'=2)&(c'=1)&(x') + CCA: (s'=3)&(c'=2);
+	
+
 
 	//WAIT FOR DIFS to transmit, let time pass
 	[time] s = 2 & x< DIFS -> CCA: (s' = 3) + 1 - CCA: (x' = min(x + 1,TRANS_TIME_MAX));
